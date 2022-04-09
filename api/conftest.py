@@ -28,9 +28,7 @@ def mock_dynamodb():
 
     mock_dynamodb2().start()
 
-    session = Session(aws_access_key_id='<ACCESS_KEY_ID>',
-                      aws_secret_access_key='<SECRET_KEY>',
-                      region_name='us-west-2')
+    session = Session(aws_access_key_id='<ACCESS_KEY_ID>', aws_secret_access_key='<SECRET_KEY>')
     dynamodb = session.resource('dynamodb')
 
     wheel_table = dynamodb.create_table(
@@ -45,12 +43,34 @@ def mock_dynamodb():
             {
                 'AttributeName': 'id',
                 'AttributeType': 'S'
+            },
+            {
+                'AttributeName': 'name',
+                'AttributeType': 'S'
             }
         ],
         ProvisionedThroughput={
             'ReadCapacityUnits': 1,
             'WriteCapacityUnits': 1
-        }
+        },
+        GlobalSecondaryIndexes=[
+            {
+                'IndexName': 'name_index',
+                'KeySchema': [
+                    {
+                        'AttributeName': 'name',
+                        'KeyType': 'HASH'
+                    },
+                ],
+                'Projection': {
+                    'ProjectionType': 'ALL'
+                },
+                'ProvisionedThroughput': {
+                    'ReadCapacityUnits': 1,
+                    'WriteCapacityUnits': 1
+                }
+            },
+        ],
     )
 
     participant_table = dynamodb.create_table(
@@ -96,7 +116,7 @@ def mock_wheel_table(mock_dynamodb):
     add_extended_table_functions(Wheel)
     utils.Wheel = Wheel
     yield Wheel
-    wheels = Wheel.scan({})['Items']
+    wheels = Wheel.scan()['Items']
     with Wheel.batch_writer() as batch:
         for wheel in wheels:
             batch.delete_item(Key={'id': wheel['id']})
@@ -108,7 +128,7 @@ def mock_participant_table(mock_dynamodb):
     add_extended_table_functions(WheelParticipant)
     utils.WheelParticipant = WheelParticipant
     yield WheelParticipant
-    participants = WheelParticipant.scan({})['Items']
+    participants = WheelParticipant.scan()['Items']
     with WheelParticipant.batch_writer() as batch:
         for participant in participants:
             batch.delete_item(Key={'id': participant['id'], 'wheel_id': participant['wheel_id']})
